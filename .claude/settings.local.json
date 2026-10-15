@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep *)",
+      "Bash(command -v qemu-system-x86_64)",
+      "Bash(command -v grub-mkrescue)",
+      "Bash(command -v xorriso)",
+      "Bash(command -v gcc)",
+      "Bash(command -v nasm)",
+      "Bash(command -v grub-file)",
+      "Bash(command -v ld)",
+      "Bash(command -v objcopy)",
+      "Bash(command -v as)",
+      "Bash(command -v make)"
+    ]
+  }
+}
