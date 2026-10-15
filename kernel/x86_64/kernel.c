@@ -177,6 +177,12 @@ void kernel_main(void)
     outb(0x3fa, 0xc7);
     outb(0x3fc, 0x0b);
     serial_write("KERNEL_MAIN reached\r\n");
+
+    volatile u16 *test_vga = (volatile u16 *)0xB8000;
+    test_vga[0] = 0x0F4B;  // Белая K
+    test_vga[1] = 0x0F45;  // Белая E
+    test_vga[2] = 0x0F52;  // Белая R
+                           //
     clear_screen();
     write_text("MINIX 1 x86_64 VGA terminal\nType help for commands.\n\n");
     for (;;) {

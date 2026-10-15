@@ -16,7 +16,13 @@ CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic -fno-stack-protector \
          -fno-builtin -O2 -Wall -Wextra
 LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 -T kernel/x86_64/linker.ld
 
-QEMU_FLAGS = -m 256M -drive file=fat:rw:$(FAT_DIR),format=raw -bios $(OVMF_CODE) -display gtk -no-reboot
+# QEMU_FLAGS = -m 256M -drive file=fat:rw:$(FAT_DIR),format=raw -bios $(OVMF_CODE) -display gtk -no-reboot
+QEMU_FLAGS = -m 256M \
+    -drive file=fat:rw:$(FAT_DIR),format=raw \
+    -bios $(OVMF_CODE) \
+    -display gtk \
+    -serial stdio \
+    -no-reboot
 
 .PHONY: all clean run debug kernel image help
 
