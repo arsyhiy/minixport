@@ -56,8 +56,19 @@ $(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o kernel/x86_64/linker.ld
 # Legacy: tools/bootblok.s and its boot image are 16-bit BIOS-specific.
 image: $(GRUB_EFI) $(FAT_DIR)/boot/minix.elf
 
+# $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
+# 	printf '%s\n' 'set timeout=0' 'set default=0' 'insmod all_video' 'insmod gfxterm' 'set gfxmode=auto' 'set gfxpayload=keep' 'terminal_output gfxterm' 'menuentry "MINIX 1 terminal" {' '  multiboot2 /boot/minix.elf' '  boot' '}' > $@
 $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
-	printf '%s\n' 'set timeout=0' 'set default=0' 'insmod all_video' 'insmod gfxterm' 'set gfxmode=auto' 'set gfxpayload=keep' 'terminal_output gfxterm' 'menuentry "MINIX 1 terminal" {' '  multiboot2 /boot/minix.elf' '  boot' '}' > $@
+	printf '%s\n' \
+	    'set timeout=0' \
+	    'set default=0' \
+	    'insmod all_video' \
+	    'insmod multiboot2' \
+	    'terminal_output console' \
+	    'menuentry "MINIX 1 terminal" {' \
+	    '  multiboot2 /boot/minix.elf' \
+	    '  boot' \
+	    '}' > $@
 
 $(GRUB_EFI): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg | $(BUILD_DIR)
 	mkdir -p $(FAT_DIR)/EFI/BOOT
