@@ -325,59 +325,41 @@ void vga_write(const char *str)
 void kernel_main(void)
 {
     char line[INPUT_SIZE];
+    u32 pos = 0;
 
-    /* Initialize COM1 serial port. */
-    outb(0x3f9, 0x00);
-    outb(0x3fb, 0x80);
-    outb(0x3f8, 0x03);
-    outb(0x3f9, 0x00);
-    outb(0x3fb, 0x03);
-    outb(0x3fa, 0xc7);
-    outb(0x3fc, 0x0b);
+outb(0x3F9, 0x00);
+outb(0x3FB, 0x80);
+outb(0x3F8, 0x03);
+outb(0x3F9, 0x00);
+outb(0x3FB, 0x03);
+outb(0x3FA, 0xC7);
+outb(0x3FC, 0x0B);
+    vga_clear();
 
-    serial_write("KERNEL_MAIN reached\r\n");
-serial_write("before vga_clear\r\n");
-vga_clear();
-serial_write("after vga_clear\r\n");
+    vga_write("MINIX 1 terminal\n");
+    vga_write("Type 'help' for commands.\n");
+    print_prompt();
 
-vga_write("HELLO VGA\n");
-serial_write("after vga_write\r\n");
+    for (;;) {
+        char ch = keyboard_getchar();
 
-for (;;)
-    __asm__ volatile ("hlt");
+        if (ch == '\0')
+            continue;
 
-    // /* Initialize VGA terminal. */
-    // vga_clear();
-    // vga_write("Experimental x86 kernel\n");
-    // vga_write("Type help for commands.\n\n");
-    //
-    // for (;;) {
-    //     u32 length = 0;
-    //
-    //     print_prompt();
-    //
-    //     for (;;) {
-    //         char ch = keyboard_getchar();
-    //
-    //         if (ch == '\n') {
-    //             vga_put_char('\n');
-    //             line[length] = '\0';
-    //             execute_command(line);
-    //             break;
-    //         }
-    //
-    //         if (ch == '\b') {
-    //             if (length > 0) {
-    //                 length--;
-    //                 vga_put_char('\b');
-    //             }
-    //             continue;
-    //         }
-    //
-    //         if ((u8)ch >= 32 && length < INPUT_SIZE - 1) {
-    //             line[length++] = ch;
-    //             vga_put_char(ch);
-    //         }
-    //     }
-    // }
+        if (ch == '\n') {
+            vga_put_char('\n');
+            line[pos] = '\0';
+            execute_command(line);
+            pos = 0;
+            print_prompt();
+        } else if (ch == '\b') {
+            if (pos > 0) {
+                pos--;
+                vga_put_char('\b');
+            }
+        } else if (pos < INPUT_SIZE - 1) {
+            line[pos++] = ch;
+            vga_put_char(ch);
+        }
+    }
 }
