@@ -42,7 +42,7 @@ $(LIB): $(C_OBJECTS) $(ASM_OBJECTS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %_i386.o: %_i386.S
-	$(AS) $(ASFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f *.o $(LIB)

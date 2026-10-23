@@ -1,0 +1,10 @@
+CompileFlags:
+  Add:
+    - -m32
+    - -march=i386
+    - -std=c11
+    - -ffreestanding
+    - -fno-builtin
+    - -Iinclude
+    - -Ih
+    - -Ilib

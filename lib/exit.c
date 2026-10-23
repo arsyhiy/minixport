@@ -1,5 +1,7 @@
 #include "../include/lib.h"
 
+#include "call.h"
+
 PUBLIC int exit(status)
 int status;
 {

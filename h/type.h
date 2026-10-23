@@ -1,3 +1,10 @@
+
+
+
+#ifndef MINIX_TYPE_H
+#define MINIX_TYPE_H
+
+
 /* Macros */
 #define MAX(a,b)	(a > b ? a : b)
 #define MIN(a,b)	(a < b ? a : b)
@@ -123,3 +130,5 @@ struct copy_info {		/* used by sys_copy(src, dst, bytes) */
 	vir_bytes cp_dst_vir;
 	vir_bytes cp_bytes;
 };
+
+#endif /* MINIX_TYPE_H */
