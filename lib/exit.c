@@ -1,9 +1,9 @@
 #include "../include/lib.h"
-
 #include "call.h"
+#include "exit.h"
 
-PUBLIC int exit(status)
-int status;
+int exit(int status)
 {
-  return callm1(MM, EXIT, status, 0, 0, NIL_PTR, NIL_PTR, NIL_PTR);
+    return callm1(MM, EXIT, status, 0, 0,
+                  NIL_PTR, NIL_PTR, NIL_PTR);
 }

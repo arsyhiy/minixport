@@ -19,15 +19,6 @@ extern int errno;
 #define MM 0
 #define FS 1
 
-int callm1(int proc, int syscallnr,
-           int i1, int i2, int i3,
-           char *p1, char *p2, char *p3);
-
-int callm3(int proc, int syscallnr,
-           char *name, int int1);
-
-int callx(int proc, int syscallnr);
-int len(const char *s);
 /* extern int begsig();		/\* interrupts all vector here *\/ */
 
 #endif /* MINIX_LIB_H */
