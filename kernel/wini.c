@@ -18,6 +18,9 @@
  *
  */
 
+// TODO: переписать под современные носители данных
+
+
 #include "../h/const.h"
 #include "../h/type.h"
 #include "../h/callnr.h"

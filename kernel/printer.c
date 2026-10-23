@@ -20,6 +20,8 @@
  * Note: since only 1 printer is supported, minor dev is not used at present.
  */
 
+// NOTE: это файл бесполезен так как нету смысла портировать возможности драйвера принтера
+
 #include "../h/const.h"
 #include "../h/type.h"
 #include "../h/callnr.h"

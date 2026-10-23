@@ -96,74 +96,145 @@
 #
 #
 
-CC = gcc
-LD = ld
-QEMU = qemu-system-i386
-GRUB_MKRESCUE = grub-mkrescue
+# CC = gcc
+# LD = ld
+# QEMU = qemu-system-i386
+# GRUB_MKRESCUE = grub-mkrescue
+#
+# BUILD_DIR = build/x86_64
+# KERNEL_ELF = $(BUILD_DIR)/minix.elf
+# ISO_ROOT = $(BUILD_DIR)/iso
+# ISO_FILE = $(BUILD_DIR)/minix.iso
+#
+# CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic \
+#          -fno-stack-protector -fno-builtin \
+#          -O2 -Wall -Wextra
+#
+# LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 \
+#           -T kernel/x86_64/linker.ld
+#
+# QEMU_FLAGS = -m 256M \
+#              -cdrom $(ISO_FILE) \
+#              -boot d \
+#              -display gtk \
+#              -serial stdio \
+#              -no-reboot
+#
+# .PHONY: all clean run debug kernel image
+#
+# all: image
+#
+# kernel: $(KERNEL_ELF)
+#
+# $(BUILD_DIR):
+# 	mkdir -p $@
+#
+# $(BUILD_DIR)/boot.o: kernel/x86_64/boot.S | $(BUILD_DIR)
+# 	$(CC) -m32 -ffreestanding -fno-pie -c $< -o $@
+#
+# $(BUILD_DIR)/kernel.o: kernel/x86_64/kernel.c | $(BUILD_DIR)
+# 	$(CC) $(CFLAGS) -c $< -o $@
+#
+# $(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o \
+#                kernel/x86_64/linker.ld
+# 	$(LD) $(LDFLAGS) -o $@ \
+# 	    $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o
+#
+# $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
+# 	mkdir -p $(BUILD_DIR)
+# 	printf '%s\n' \
+# 	    'set timeout=0' \
+# 	    'set default=0' \
+# 	    'terminal_output console' \
+# 	    'menuentry "MINIX 1 terminal" {' \
+# 	    '    multiboot2 /boot/minix.elf' \
+# 	    '    boot' \
+# 	    '}' > $@
+#
+# image: $(ISO_FILE)
+#
+# $(ISO_FILE): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg
+# 	mkdir -p $(ISO_ROOT)/boot/grub
+# 	cp $(KERNEL_ELF) $(ISO_ROOT)/boot/minix.elf
+# 	cp $(BUILD_DIR)/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
+# 	$(GRUB_MKRESCUE) -o $@ $(ISO_ROOT)
+#
+# run: image
+# 	$(QEMU) $(QEMU_FLAGS)
+#
+# debug: image
+# 	$(QEMU) $(QEMU_FLAGS) -s -S
+#
+# clean:
+# 	rm -rf build
+#
 
-BUILD_DIR = build/x86_64
-KERNEL_ELF = $(BUILD_DIR)/minix.elf
-ISO_ROOT = $(BUILD_DIR)/iso
-ISO_FILE = $(BUILD_DIR)/minix.iso
-
-CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic \
-         -fno-stack-protector -fno-builtin \
-         -O2 -Wall -Wextra
-
-LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 \
-          -T kernel/x86_64/linker.ld
-
-QEMU_FLAGS = -m 256M \
-             -cdrom $(ISO_FILE) \
-             -boot d \
-             -display gtk \
-             -serial stdio \
-             -no-reboot
-
-.PHONY: all clean run debug kernel image
-
-all: image
-
-kernel: $(KERNEL_ELF)
-
-$(BUILD_DIR):
-	mkdir -p $@
-
-$(BUILD_DIR)/boot.o: kernel/x86_64/boot.S | $(BUILD_DIR)
-	$(CC) -m32 -ffreestanding -fno-pie -c $< -o $@
-
-$(BUILD_DIR)/kernel.o: kernel/x86_64/kernel.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) -c $< -o $@
-
-$(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o \
-               kernel/x86_64/linker.ld
-	$(LD) $(LDFLAGS) -o $@ \
-	    $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o
-
-$(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
-	mkdir -p $(BUILD_DIR)
-	printf '%s\n' \
-	    'set timeout=0' \
-	    'set default=0' \
-	    'terminal_output console' \
-	    'menuentry "MINIX 1 terminal" {' \
-	    '    multiboot2 /boot/minix.elf' \
-	    '    boot' \
-	    '}' > $@
-
-image: $(ISO_FILE)
-
-$(ISO_FILE): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg
-	mkdir -p $(ISO_ROOT)/boot/grub
-	cp $(KERNEL_ELF) $(ISO_ROOT)/boot/minix.elf
-	cp $(BUILD_DIR)/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
-	$(GRUB_MKRESCUE) -o $@ $(ISO_ROOT)
-
-run: image
-	$(QEMU) $(QEMU_FLAGS)
-
-debug: image
-	$(QEMU) $(QEMU_FLAGS) -s -S
-
-clean:
-	rm -rf build
+# CC = gcc
+# LD = ld
+# QEMU = qemu-system-i386
+# GRUB_MKRESCUE = grub-mkrescue
+#
+# BUILD_DIR = build
+# KERNEL_ELF = $(BUILD_DIR)/minix.elf
+# ISO_ROOT = $(BUILD_DIR)/iso
+# ISO_FILE = $(BUILD_DIR)/minix.iso
+#
+# CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic \
+#          -fno-stack-protector -fno-builtin \
+#          -O2 -Wall -Wextra
+#
+# LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 \
+#           -T kernel/linker.ld
+#
+# QEMU_FLAGS = -m 256M \
+#              -cdrom $(ISO_FILE) \
+#              -boot d \
+#              -display gtk \
+#              -serial stdio \
+#              -no-reboot
+#
+# .PHONY: all clean run debug kernel image
+#
+# all: image
+#
+# kernel: $(KERNEL_ELF)
+#
+# $(BUILD_DIR):
+# 	mkdir -p $@
+#
+# $(BUILD_DIR)/boot.o: kernel/boot.S | $(BUILD_DIR)
+# 	$(CC) -m32 -ffreestanding -fno-pie -c $< -o $@
+#
+# $(BUILD_DIR)/kernel.o: kernel/kernel.c | $(BUILD_DIR)
+# 	$(CC) $(CFLAGS) -c $< -o $@
+#
+# $(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o kernel/linker.ld
+# 	$(LD) $(LDFLAGS) -o $@ \
+# 	    $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o
+#
+# $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
+# 	printf '%s\n' \
+# 	    'set timeout=0' \
+# 	    'set default=0' \
+# 	    'terminal_output console' \
+# 	    'menuentry "MINIX 1 terminal" {' \
+# 	    '    multiboot2 /boot/minix.elf' \
+# 	    '    boot' \
+# 	    '}' > $@
+#
+# image: $(ISO_FILE)
+#
+# $(ISO_FILE): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg
+# 	mkdir -p $(ISO_ROOT)/boot/grub
+# 	cp $(KERNEL_ELF) $(ISO_ROOT)/boot/minix.elf
+# 	cp $(BUILD_DIR)/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
+# 	$(GRUB_MKRESCUE) -o $@ $(ISO_ROOT)
+#
+# run: image
+# 	$(QEMU) $(QEMU_FLAGS)
+#
+# debug: image
+# 	$(QEMU) $(QEMU_FLAGS) -s -S
+#
+# clean:
+# 	rm -rf $(BUILD_DIR)

@@ -1,3 +1,5 @@
+внимание!!! это очень старый способ сборки через  msdos. теперь lib/ собирается через makefile под debian  
+
 echo off
 :begin
 if "%1"=="" goto eind

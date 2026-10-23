@@ -18,6 +18,8 @@
  *	27 october 1986 by Jakob Schripsema: fdc_results fixed for 8 MHz
  */
 
+// NOTE: этот файл безполезен так как сейчас ни кто не использует флоппи диски
+
 #include "../h/const.h"
 #include "../h/type.h"
 #include "../h/callnr.h"
