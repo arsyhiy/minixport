@@ -1,0 +1,8 @@
+-x
+c
+-m32
+-std=c11
+-ffreestanding
+-Iinclude
+-Ih
+-Ilib
