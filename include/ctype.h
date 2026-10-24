@@ -19,3 +19,28 @@ extern	char	_ctype_[];
 #define isprint(c)	((_ctype_+1)[c]&(_P|_U|_L|_N))
 #define iscntrl(c)	((_ctype_+1)[c]&_C)
 #define isascii(c)	((unsigned)(c)<=0177)
+
+
+/* ```c */
+/* #ifndef MINIX_CTYPE_H */
+/* #define MINIX_CTYPE_H */
+/*  */
+/* int isalnum(int ch); */
+/* int isalpha(int ch); */
+/* int isascii(int ch); */
+/* int iscntrl(int ch); */
+/* int isdigit(int ch); */
+/* int isgraph(int ch); */
+/* int islower(int ch); */
+/* int isprint(int ch); */
+/* int ispunct(int ch); */
+/* int isspace(int ch); */
+/* int isupper(int ch); */
+/* int isxdigit(int ch); */
+/*  */
+/* int toascii(int ch); */
+/* int tolower(int ch); */
+/* int toupper(int ch); */
+/*  */
+/* #endif /\* MINIX_CTYPE_H *\/ */
+/* ``` */

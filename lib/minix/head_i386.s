@@ -9,7 +9,6 @@
 .code32
 
 .globl _start
-.globl _main
 .globl _exit
 
 .extern main

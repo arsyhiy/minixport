@@ -55,3 +55,46 @@ extern struct _io_buf {
 
 #define noperprintf(p)		((p)->_flags &= ~PERPRINTF)
 #define perprintf(p)		((p)->_flags |= PERPRINTF)
+
+
+
+/* ```c */
+/* #ifndef MINIX_STDIO_H */
+/* #define MINIX_STDIO_H */
+/*  */
+/* #include <stddef.h> */
+/*  */
+/* typedef struct _minix_FILE FILE; */
+/*  */
+/* #define EOF (-1) */
+/* #define BUFSIZ 1024 */
+/*  */
+/* extern FILE *stdin; */
+/* extern FILE *stdout; */
+/* extern FILE *stderr; */
+/*  */
+/* int fclose(FILE *stream); */
+/* int fflush(FILE *stream); */
+/*  */
+/* char *fgets(char *str, int n, FILE *stream); */
+/* FILE *fopen(const char *path, const char *mode); */
+/* int fprintf(FILE *stream, const char *format, ...); */
+/* int fputs(const char *str, FILE *stream); */
+/* size_t fread(void *ptr, size_t size, size_t count, FILE *stream); */
+/* FILE *freopen(const char *path, const char *mode, FILE *stream); */
+/* int fseek(FILE *stream, long offset, int whence); */
+/* long ftell(FILE *stream); */
+/* size_t fwrite(const void *ptr, size_t size, size_t count, FILE *stream); */
+/* int getc(FILE *stream); */
+/* int getchar(void); */
+/* char *gets(char *str); */
+/* void perror(const char *str); */
+/* int putc(int ch, FILE *stream); */
+/* int putchar(int ch); */
+/* int scanf(const char *format, ...); */
+/* void setbuf(FILE *stream, char *buffer); */
+/* int sprintf(char *str, const char *format, ...); */
+/* int ungetc(int ch, FILE *stream); */
+/*  */
+/* #endif /\* MINIX_STDIO_H *\/ */
+/* ``` */

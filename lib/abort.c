@@ -1,11 +1,6 @@
-/*
- * abort.c — Abort program execution.
- */
-
-#include "abort.h"
-#include "exit.h"
+#include "stdlib.h"
 
 void abort(void)
 {
-  exit(99);
+    exit(99);
 }
