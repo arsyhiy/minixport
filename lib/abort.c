@@ -7,5 +7,5 @@
 
 void abort(void)
 {
-    exit(99);
+  exit(99);
 }
