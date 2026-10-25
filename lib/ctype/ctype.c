@@ -1,3 +1,14 @@
+/*
+ * ctype.c: Character classification table for the C library.
+ *
+ * This file defines _ctype_, a table of character classification
+ * flags used by the character classification macros or functions.
+ *
+ * The flags are defined in ctype.h and describe properties such
+ * as control characters, whitespace, punctuation, digits, and
+ * uppercase and lowercase letters.
+ */
+
 #include "ctype.h"
 
 char _ctype_[] = {
