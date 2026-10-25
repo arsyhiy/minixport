@@ -20,4 +20,8 @@ int open(const char *path, int flags, ...);
 /* Create or truncate a file */
 int creat(const char *path, unsigned int mode);
 
+
+
+int access(const char *path, int mode); // access.c
+
 #endif /* MINIX_FCNTL_H */
