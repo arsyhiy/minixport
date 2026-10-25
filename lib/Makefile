@@ -1,113 +1,65 @@
-# CC      = gcc
-# AR      = ar
-# RANLIB  = ranlib
-# 
-# ARCH    = -m32 -march=i386
-# 
-# CFLAGS  = $(ARCH) -std=c11 \
-#           -ffreestanding -fno-pie \
-#           -fno-stack-protector -fno-builtin \
-#           -fno-common \
-#           -Wall -Wextra \
-#           -I../include -I../h
-# 
-# LIB     = libc.a
-# 
-# # All C sources in the library.
-# C_SOURCES := $(wildcard *.c)
-# C_OBJECTS := $(C_SOURCES:.c=.o)
-# 
-# # # Assembly sources providing library functions.
-# # ASM_SOURCES := sendrec_i386.S brksize_i386.S \
-# #                catchsig_i386.S csv_i386.S \
-# #                getutil_i386.S setjmp_i386.S
-# # 
-# # ASM_OBJECTS := $(ASM_SOURCES:.S=.o)
-# # 
-# # # Startup and linker-support objects.
-# # STARTUP_SOURCES := crtso_i386.S head_i386.S end_i386.S
-# # STARTUP_OBJECTS := $(STARTUP_SOURCES:.S=.o)
-# 
-# 
-# # Minimal library required by init, without signal support for now.
-# C_SOURCES := call.c close.c exec.c exit.c fork.c \
-#              globals.c open.c read.c sync.c wait.c write.c
-# C_OBJECTS := $(C_SOURCES:.c=.o)
-# 
-# # i386 system-call entry.
-# ASM_SOURCES := sendrec_i386.s
-# ASM_OBJECTS := $(ASM_SOURCES:.s=.o)
-# 
-# # Startup objects remain separate.
-# STARTUP_SOURCES := crtso.s head.s end.s
-# STARTUP_OBJECTS := $(STARTUP_SOURCES:.s=.o)
-# 
-# .PHONY: all clean objects startup
-# 
-# all: $(LIB) startup
-# 
-# objects: $(C_OBJECTS) $(ASM_OBJECTS) $(STARTUP_OBJECTS)
-# 
-# startup: $(STARTUP_OBJECTS)
-# 
-# $(LIB): $(C_OBJECTS) $(ASM_OBJECTS)
-# 	$(AR) rcs $@ $^
-# 	$(RANLIB) $@
-# 
-# # %.o: %.c
-# # 	$(CC) $(CFLAGS) -c $< -o $@
-# 
-# %.o: %.s
-# 	$(CC) $(CFLAGS) -c $< -o $@
-# 
-# %_i386.o: %_i386.S
-# 	$(CC) $(CFLAGS) -c $< -o $@
-# 
-# clean:
-# 	rm -f *.o $(LIB)
+# i386 library fragments used by tools/init.
+#
+# This is intentionally not a complete libc.  Keep the object list explicit:
+# changing one syscall implementation must not silently pull every legacy
+# library directory into an init image.
 
+CC     ?= gcc
+AR     ?= ar
+RANLIB ?= ranlib
 
+ARCH   = -m32 -march=i386
+CFLAGS = $(ARCH) -std=c11 -ffreestanding -fno-pie -fno-pic \
+         -fno-stack-protector -fno-builtin -fno-common \
+         -Wall -Wextra -I../include -I../h
+ASFLAGS = $(ARCH) -ffreestanding -fno-pie
 
-CC      = gcc
-AR      = ar
-RANLIB  = ranlib
+LIB = libinit.a
 
-ARCH    = -m32 -march=i386
-CFLAGS  = $(ARCH) -std=c11 \
-          -ffreestanding -fno-pie \
-          -fno-stack-protector -fno-builtin \
-          -fno-common -Wall -Wextra \
-          -I../include -I../h
-
-LIB = libc.a
-
-C_SOURCES := call.c close.c exec.c exit.c fork.c \
-             globals.c open.c read.c sync.c wait.c write.c
-C_OBJECTS := $(C_SOURCES:.c=.o)
-
-ASM_SOURCES := sendrec_i386.s
-ASM_OBJECTS := $(ASM_SOURCES:.s=.o)
-
-STARTUP_OBJECTS := head_i386.o
+# Only the functions called by tools/init.c, plus the IPC entry point.
+C_OBJECTS = syscall/call.o syscall/close.o syscall/errno.o syscall/message.o \
+            syscall/open.o syscall/read.o syscall/sync.o syscall/write.o \
+            process/exec.o process/exit.o process/fork.o process/wait.o
+ASM_OBJECTS = syscall/sendrec_i386.o
+STARTUP = runtime/head_i386.o
+OBJECTS = $(C_OBJECTS) $(ASM_OBJECTS)
 
 .PHONY: all clean startup
 
-all: $(LIB) startup
+all: $(LIB) $(STARTUP)
 
-$(LIB): $(C_OBJECTS) $(ASM_OBJECTS)
+$(LIB): $(OBJECTS)
 	$(AR) rcs $@ $^
 	$(RANLIB) $@
 
-startup: $(STARTUP_OBJECTS)
-
-%.o: %.c
+syscall/%.o: syscall/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.s
+process/%.o: process/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-head_i386.o: minix/head_i386.s
-	$(CC) $(CFLAGS) -c $< -o $@
+syscall/sendrec_i386.o: syscall/sendrec_i386.s
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+runtime/head_i386.o: runtime/head_i386.s
+	$(CC) $(ASFLAGS) -c $< -o $@
+
+startup: $(STARTUP)
 
 clean:
-	rm -f *.o $(LIB)
+	rm -f $(OBJECTS) $(STARTUP) $(LIB)
+
+# ---------------------------------------------------------------------------
+# Previous experimental Makefile, retained as documentation.
+# It listed globals.c and open.c as if they lived directly in lib/, although
+# the sources were moved into subdirectories.  It also built a broad libc.a.
+#
+# C_SOURCES := call.c close.c exec.c exit.c fork.c \
+#              globals.c open.c read.c sync.c wait.c write.c
+# ASM_SOURCES := sendrec_i386.s
+# STARTUP_OBJECTS := head_i386.o
+# all: libc.a startup
+# libc.a: $(C_OBJECTS) $(ASM_OBJECTS)
+# 	$(AR) rcs $@ $^
+# startup: $(STARTUP_OBJECTS)
+# ---------------------------------------------------------------------------

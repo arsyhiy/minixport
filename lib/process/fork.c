@@ -1,4 +1,4 @@
-#include "../include/lib.h"
+#include "../../include/lib.h"
 
 PUBLIC int fork(void)
 {

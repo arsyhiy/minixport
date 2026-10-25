@@ -1,12 +1,18 @@
+/* linker.ld — M1 kernel flat binary.
+ *
+ * The BIOS boot sector loads this image at physical 0x10000 and jumps to
+ * its first byte, so the entry stub must sit at offset 0 and all addressing
+ * must match the 64 KiB load address.
+ */
+
 OUTPUT_FORMAT(elf32-i386)
 ENTRY(_start)
 
 SECTIONS
 {
-    . = 1M;
-    .multiboot : ALIGN(8) { KEEP(*(.multiboot)) }
-    .text : ALIGN(4K) { *(.text*) }
-    .rodata : ALIGN(4K) { *(.rodata*) }
-    .data : ALIGN(4K) { *(.data*) }
-    .bss : ALIGN(4K) { *(COMMON) *(.bss*) }
+    . = 0x10000;
+    .text : AT(0x10000) { *(.text.head) *(.text*) }
+    .rodata : { *(.rodata*) }
+    .data : { *(.data*) }
+    .bss : { *(COMMON) *(.bss*) }
 }

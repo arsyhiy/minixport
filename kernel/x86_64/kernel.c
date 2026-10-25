@@ -1,39 +1,45 @@
-// define section
-#define INPUT_SIZE 128
+/*
+ * kernel.c — M1 kernel entry.
+ *
+ * Runs at physical 0x10000 after the BIOS boot sector hands over control in
+ * 32-bit protected mode.  For the M1 milestone the kernel does three things:
+ *
+ *   1. initialize the VGA text console and COM1 serial line
+ *   2. read the module table that build.py patched into the boot sector
+ *      (bytes 500-509 at 0x7C00) and report where each module landed
+ *   3. print the milestone banner and halt
+ *
+ * The old code below (interactive VGA terminal with keyboard polling and a
+ * toy command interpreter) is preserved in a comment for comparison — it
+ * was a standalone demo, not MINIX architecture.
+ */
 
+typedef unsigned char  u8;
+typedef unsigned short u16;
+typedef unsigned int   u32;
+
+#define VGA_BASE   ((volatile u16 *)0xB8000)
 #define VGA_WIDTH  80
 #define VGA_HEIGHT 25
-#define VGA_SIZE   (VGA_WIDTH * VGA_HEIGHT)
-
 #define VGA_COLOR  0x0F
-#define VGA_ENTRY(ch, color) \
-    ((u16)(u8)(ch) | ((u16)(color) << 8))
 
-// prototype section
-void vga_clear(void);
-void vga_put_char(char ch);
-void vga_write(const char *str);
+#define COM1       0x3F8
+#define BOOT_SECTOR 0x7C00            /* where BIOS dropped the boot block */
+#define MOD_TABLE  (BOOT_SECTOR + 500)/* module table written by build.py */
 
-
-// typedef section
-typedef unsigned char  u8;
-typedef unsigned short u16;
-typedef unsigned int   u32;
-
-typedef unsigned char  u8;
-typedef unsigned short u16;
-typedef unsigned int   u32;
-
-// static section
-static u8 shift_down = 0;
-static u8 caps_lock = 0;
-
+struct module_table {
+    u16 kernel_sectors;
+    u16 mm_off;
+    u16 fs_off;
+    u16 init_off;
+    u16 rootfs_off;
+};
 
 static inline u8 inb(u16 port)
 {
-    u8 value;
-    __asm__ volatile ("inb %1, %0" : "=a"(value) : "Nd"(port));
-    return value;
+    u8 v;
+    __asm__ volatile ("inb %1, %0" : "=a"(v) : "Nd"(port));
+    return v;
 }
 
 static inline void outb(u16 port, u8 value)
@@ -41,275 +47,217 @@ static inline void outb(u16 port, u8 value)
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
 
-
-static int strings_equal(const char *left, const char *right)
+static void serial_init(void)
 {
-    while (*left && *left == *right) {
-        left++;
-        right++;
-    }
-    return *left == *right;
+    outb(COM1 + 1, 0x00);   /* no interrupts yet */
+    outb(COM1 + 3, 0x80);   /* DLAB */
+    outb(COM1 + 0, 0x03);   /* 38400 baud divisor */
+    outb(COM1 + 1, 0x00);
+    outb(COM1 + 3, 0x03);   /* 8N1 */
+    outb(COM1 + 2, 0xC7);   /* FIFO on */
+    outb(COM1 + 4, 0x0B);   /* RTS/DTR */
 }
 
-static int starts_with(const char *text, const char *prefix)
+static void serial_putc(char c)
 {
-    while (*prefix && *text == *prefix) {
-        text++;
-        prefix++;
-    }
-    return *prefix == 0;
+    while (!(inb(COM1 + 5) & 0x20))
+        ;
+    outb(COM1, (u8)c);
 }
 
-static char scan_to_ascii(u8 scan)
+static void serial_puts(const char *s)
 {
-    static const char plain[] = {
-        0, 27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b', '\t',
-        'q','w','e','r','t','y','u','i','o','p','[',']','\n', 0, 'a','s',
-        'd','f','g','h','j','k','l',';','\'', '`', 0, '\\','z','x','c','v',
-        'b','n','m',',','.','/', 0, '*', 0, ' '
-    };
-    static const char shifted[] = {
-        0, 27, '!','@','#','$','%','^','&','*','(',')','_','+', '\b', '\t',
-        'Q','W','E','R','T','Y','U','I','O','P','{','}','\n', 0, 'A','S',
-        'D','F','G','H','J','K','L',':','"','~', 0, '|','Z','X','C','V',
-        'B','N','M','<','>','?', 0, '*', 0, ' '
-    };
-    if (scan >= sizeof(plain))
-        return 0;
-    char ch = (shift_down ? shifted : plain)[scan];
-if (caps_lock && ch >= 'a' && ch <= 'z') {
-    if (!shift_down)
-        ch = (char)(ch - 'a' + 'A');
-} else if (caps_lock && ch >= 'A' && ch <= 'Z') {
-    if (shift_down)
-        ch = (char)(ch - 'A' + 'a');
-}
-    return ch;
-}
-
-static char keyboard_getchar(void)
-{
-    for (;;) {
-        if (!(inb(0x64) & 1))
-            continue;
-        u8 scan = inb(0x60);
-        if (scan == 0x2a || scan == 0x36) {
-            shift_down = 1;
-            continue;
-        }
-        if (scan == 0xaa || scan == 0xb6) {
-            shift_down = 0;
-            continue;
-        }
-        if (scan == 0x3a) {
-            caps_lock = !caps_lock;
-            continue;
-        }
-        if (scan & 0x80)
-            continue;
-        char ch = scan_to_ascii(scan);
-        if (ch)
-            return ch;
+    while (*s) {
+        if (*s == '\n')
+            serial_putc('\r');
+        serial_putc(*s++);
     }
 }
 
-static void serial_write(const char *text)
+static u32 vga_cursor;
+
+static void vga_clear(void)
 {
-    while (*text) {
-        while (!(inb(0x3fd) & 0x20))
-            ;
-        outb(0x3f8, (u8)*text++);
+    for (u32 i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++)
+        VGA_BASE[i] = (u16)' ' | ((u16)VGA_COLOR << 8);
+    vga_cursor = 0;
+}
+
+static void vga_putc(char c)
+{
+    if (c == '\n') {
+        vga_cursor = (vga_cursor / VGA_WIDTH + 1) * VGA_WIDTH;
+    } else if ((u8)c >= 32) {
+        VGA_BASE[vga_cursor++] = (u16)(u8)c | ((u16)VGA_COLOR << 8);
+    }
+    if (vga_cursor >= VGA_WIDTH * VGA_HEIGHT) {
+        /* scroll one line */
+        for (u32 i = 0; i < (VGA_HEIGHT - 1) * VGA_WIDTH; i++)
+            VGA_BASE[i] = VGA_BASE[i + VGA_WIDTH];
+        for (u32 i = 0; i < VGA_WIDTH; i++)
+            VGA_BASE[(VGA_HEIGHT - 1) * VGA_WIDTH + i] =
+                (u16)' ' | ((u16)VGA_COLOR << 8);
+        vga_cursor = (VGA_HEIGHT - 1) * VGA_WIDTH;
     }
 }
 
-static void print_prompt(void)
+static void vga_puts(const char *s)
 {
-    vga_write("minix> ");
+    while (*s)
+        vga_putc(*s++);
 }
 
-
-static void execute_command(const char *line) // переписать всю обработку комманд в терминальную оболочку
+/* Every kernel message goes to both outputs, like the original printk(). */
+static void kprint(const char *s)
 {
-    if (strings_equal(line, "help")) {
-        vga_write("Commands: help, clear, about, echo TEXT\n");
-    } else if (strings_equal(line, "clear")) {
-        vga_clear();
-    } else if (strings_equal(line, "about")) {
-        vga_write("Experimental x86 kernel; legacy OS is not ported.\n");
-    } else if (starts_with(line, "echo ")) {
-        vga_write(line + 5);
-        vga_put_char('\n');
-    } else if (*line) {
-        vga_write("Unknown command. Type help.\n");
-    }
+    vga_puts(s);
+    serial_puts(s);
 }
 
-static volatile u16 *const vga =
-    (volatile u16 *)0xB8000;
-
-static u32 cursor = 0;
-
-static void vga_clear_line(u32 row)
+static void kprint_dec(u32 v)
 {
-    if (row >= VGA_HEIGHT)
-        return;
-
-    for (u32 col = 0; col < VGA_WIDTH; col++)
-        vga[row * VGA_WIDTH + col] =
-            VGA_ENTRY(' ', VGA_COLOR);
-}
-
-static void vga_scroll(void)
-{
-    for (u32 row = 1; row < VGA_HEIGHT; row++) {
-        for (u32 col = 0; col < VGA_WIDTH; col++) {
-            vga[(row - 1) * VGA_WIDTH + col] =
-                vga[row * VGA_WIDTH + col];
-        }
-    }
-
-    vga_clear_line(VGA_HEIGHT - 1);
-    cursor = VGA_SIZE - VGA_WIDTH;
-}
-
-
-
-static void vga_update_cursor(void)
-{
-    u16 pos = (u16)cursor;
-
-    outb(0x3D4, 0x0F);
-    outb(0x3D5, (u8)(pos & 0xFF));
-
-    outb(0x3D4, 0x0E);
-    outb(0x3D5, (u8)((pos >> 8) & 0xFF));
-}
-
-void vga_clear(void)
-{
-    for (u32 row = 0; row < VGA_HEIGHT; row++)
-        vga_clear_line(row);
-
-    cursor = 0;
-    vga_update_cursor();
-}
-/* void vga_clear(void) */
-/* { */
-/*     for (u32 row = 0; row < VGA_HEIGHT; row++) */
-/*         vga_clear_line(row); */
-/*  */
-/*     cursor = 0; */
-/* } */
-
-
-/* void vga_put_char(char ch) */
-/* { */
-/*     if (ch == '\r') { */
-/*         cursor -= cursor % VGA_WIDTH; */
-/*         return; */
-/*     } */
-/*  */
-/*     if (ch == '\n') { */
-/*         cursor = (cursor / VGA_WIDTH + 1) * VGA_WIDTH; */
-/*     } else if (ch == '\b') { */
-/*         if (cursor > 0) { */
-/*             cursor--; */
-/*             vga[cursor] = VGA_ENTRY(' ', VGA_COLOR); */
-/*         } */
-/*         return; */
-/*     } else if ((u8)ch >= 32) { */
-/*         if (cursor >= VGA_SIZE) */
-/*             vga_scroll(); */
-/*  */
-/*         vga[cursor++] = VGA_ENTRY(ch, VGA_COLOR); */
-/*     } else { */
-/*         return; */
-/*     } */
-/*  */
-/*     if (cursor >= VGA_SIZE) */
-/*         vga_scroll(); */
-/* } */
-
-void vga_put_char(char ch)
-{
-    if (ch == '\r') {
-        cursor -= cursor % VGA_WIDTH;
-        vga_update_cursor();
+    char buf[11];
+    int i = 10;
+    buf[i] = 0;
+    if (!v) {
+        kprint("0");
         return;
     }
-
-    if (ch == '\n') {
-        cursor = (cursor / VGA_WIDTH + 1) * VGA_WIDTH;
-    } else if (ch == '\b') {
-        if (cursor > 0) {
-            cursor--;
-            vga[cursor] = VGA_ENTRY(' ', VGA_COLOR);
-        }
-        vga_update_cursor();
-        return;
-    } else if ((u8)ch >= 32) {
-        if (cursor >= VGA_SIZE)
-            vga_scroll();
-
-        vga[cursor++] = VGA_ENTRY(ch, VGA_COLOR);
-    } else {
-        return;
+    while (v) {
+        buf[--i] = '0' + (v % 10);
+        v /= 10;
     }
-
-    if (cursor >= VGA_SIZE)
-        vga_scroll();
-
-    vga_update_cursor();
+    kprint(&buf[i]);
 }
 
-void vga_write(const char *str)
+static void kprint_hex(u32 v)
 {
-    if (!str)
-        return;
+    static const char d[] = "0123456789abcdef";
+    kprint("0x");
+    for (int i = 7; i >= 0; i--)
+        vga_putc(d[(v >> (i * 4)) & 0xF]),
+        serial_putc(d[(v >> (i * 4)) & 0xF]);
+}
 
-    while (*str)
-        vga_put_char(*str++);
+static void report_module(const char *name, u16 sector_off, u32 loaded_phys)
+{
+    kprint("  ");
+    kprint(name);
+    kprint(": image sector ");
+    kprint_dec(sector_off);
+    kprint("  phys ");
+    kprint_hex(loaded_phys);
+    kprint("\n");
 }
 
 void kernel_main(void)
 {
-    char line[INPUT_SIZE];
-    u32 pos = 0;
+    const struct module_table *mt = (const struct module_table *)MOD_TABLE;
 
-    outb(0x3F9, 0x00);
-    outb(0x3FB, 0x80);
-    outb(0x3F8, 0x03);
-    outb(0x3F9, 0x00);
-    outb(0x3FB, 0x03);
-    outb(0x3FA, 0xC7);
-    outb(0x3FC, 0x0B);
-
+    serial_init();
     vga_clear();
 
-    vga_write("MINIX 1 terminal\n");
-    vga_write("Type 'help' for commands.\n");
-    print_prompt();
+    kprint("\n");
+    kprint("MINIX M1 image — 32-bit protected mode\n");
+    kprint("======================================\n");
+    kprint("kernel   loaded at ");
+    kprint_hex(0x10000);
+    kprint(", boot block at ");
+    kprint_hex(BOOT_SECTOR);
+    kprint("\n");
 
-    for (;;) {
-        char ch = keyboard_getchar();
+    kprint("module table (build.py):\n");
+    /* modules were loaded contiguously at 0x10000, starting at image
+     * sector 1; physical = 0x10000 + (sector_off - 1) * 512.  rootfs stays
+     * on the "disk" — the loader stops before it. */
+    report_module("kernel ", 1, 0x10000);
+    report_module("mm     ", mt->mm_off,
+                  0x10000 + ((u32)mt->mm_off - 1) * 512);
+    report_module("fs     ", mt->fs_off,
+                  0x10000 + ((u32)mt->fs_off - 1) * 512);
+    report_module("init   ", mt->init_off,
+                  0x10000 + ((u32)mt->init_off - 1) * 512);
+    report_module("rootfs ", mt->rootfs_off,
+                  (u32)mt->rootfs_off * 512);
 
-        if (ch == '\0')
-            continue;
+    kprint("\n");
+    kprint("hello, world — MINIX M1 milestone reached\n");
+    kprint("(kernel only; mm/fs/init are image stubs, rootfs stays on disk)\n");
 
-        if (ch == '\n') {
-            vga_put_char('\n');
-            line[pos] = '\0';
-            execute_command(line);
-            pos = 0;
-            print_prompt();
-        } else if (ch == '\b') {
-            if (pos > 0) {
-                pos--;
-                vga_put_char('\b');
-            }
-        } else if (pos < INPUT_SIZE - 1) {
-            line[pos++] = ch;
-            vga_put_char(ch);
-        }
-    }
+    for (;;)
+        __asm__ volatile ("hlt");
 }
+
+
+/*
+ * ===========================================================================
+ * Previous kernel.c — standalone VGA terminal demo, kept for comparison.
+ * This version was never reached through the MINIX boot chain; it ran under
+ * GRUB Multiboot2 and implemented a toy command line by polling the PS/2
+ * keyboard.  The M1 kernel above replaces it with the boot-sector module
+ * report, and the M2/M3 milestones will replace the stubs with real
+ * MINIX-style task/IPC code.
+ *
+ * ---- original file -----------------------------------------------------
+ *
+ * #define INPUT_SIZE 128
+ * #define VGA_WIDTH  80
+ * #define VGA_HEIGHT 25
+ * #define VGA_SIZE   (VGA_WIDTH * VGA_HEIGHT)
+ * #define VGA_COLOR  0x0F
+ * #define VGA_ENTRY(ch, color) ((u16)(u8)(ch) | ((u16)(color) << 8))
+ *
+ * void vga_clear(void);
+ * void vga_put_char(char ch);
+ * void vga_write(const char *str);
+ *
+ * typedef unsigned char  u8;
+ * typedef unsigned short u16;
+ * typedef unsigned int   u32;
+ *
+ * static u8 shift_down = 0;
+ * static u8 caps_lock = 0;
+ *
+ * static inline u8 inb(u16 port) { ... }
+ * static inline void outb(u16 port, u8 value) { ... }
+ *
+ * static int strings_equal(const char *left, const char *right) { ... }
+ * static int starts_with(const char *text, const char *prefix) { ... }
+ *
+ * static char scan_to_ascii(u8 scan) { ...scancode table... }
+ * static char keyboard_getchar(void) { ...polls 0x64/0x60... }
+ * static void serial_write(const char *text) { ... }
+ * static void print_prompt(void) { vga_write("minix> "); }
+ *
+ * static void execute_command(const char *line)
+ * {
+ *     if (strings_equal(line, "help"))
+ *         vga_write("Commands: help, clear, about, echo TEXT\n");
+ *     else if (strings_equal(line, "clear"))
+ *         vga_clear();
+ *     else if (strings_equal(line, "about"))
+ *         vga_write("Experimental x86 kernel; legacy OS is not ported.\n");
+ *     else if (starts_with(line, "echo ")) {
+ *         vga_write(line + 5);
+ *         vga_put_char('\n');
+ *     } else if (*line)
+ *         vga_write("Unknown command. Type help.\n");
+ * }
+ *
+ * void kernel_main(void)
+ * {
+ *     ...serial init...
+ *     vga_clear();
+ *     vga_write("MINIX 1 terminal\n");
+ *     vga_write("Type 'help' for commands.\n");
+ *     print_prompt();
+ *     for (;;) {
+ *         char ch = keyboard_getchar();
+ *         ...line editing, backspace, execute_command...
+ *     }
+ * }
+ *
+ * See git history for the complete previous file — it also contained
+ * scroll/backspace/caps-lock handling and an alternate vga_put_char().
+ * ===========================================================================
+ */

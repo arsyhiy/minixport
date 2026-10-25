@@ -1,4 +1,4 @@
-#include "../include/lib.h"
+#include "../../include/lib.h"
 
 /*
  * Execute a program without arguments or environment.

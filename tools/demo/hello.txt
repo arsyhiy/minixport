@@ -1,0 +1,1 @@
+This file is copied into the demo filesystem by mkfs.py.

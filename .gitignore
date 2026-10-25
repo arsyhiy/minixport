@@ -1,19 +1,31 @@
-build/x86_64
-/lib/call.o
-/lib/close.o
-/lib/exec.o
-/lib/exit.o
-/lib/fork.o
-/lib/globals.c
-/lib/globals.o
-/lib/head_i386.o
-/lib/libc.a
-/lib/open.o
-/lib/read.o
-/lib/sendrec_i386.o
-/lib/sync.o
-/lib/wait.o
-/lib/write.o
+build/
+
+# i386 init library objects and archive (objects live in lib/*/ subdirs)
+/lib/**/*.o
+/lib/libinit.a
+
+# Old flat layout entries, kept for reference:
+# /lib/call.o
+# /lib/close.o
+# /lib/exec.o
+# /lib/exit.o
+# /lib/fork.o
+# /lib/globals.c
+# /lib/globals.o
+# /lib/head_i386.o
+# /lib/libc.a
+# /lib/open.o
+# /lib/read.o
+# /lib/sendrec_i386.o
+# /lib/sync.o
+# /lib/wait.o
+# /lib/write.o
+
 /tools/head_i386.o
 /tools/init
 /tools/init.o
+/tools/bootblok.bin
+/tools/demo/demo.fs
+/tools/demo/demo.img
+/tools/scripts/__pycache__/
+asmc/asmc

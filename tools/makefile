@@ -1,39 +1,86 @@
-CC = gcc
+# Makefile for tools/init on i386.
+#
+# Builds only what init needs: the runtime entry object plus the small
+# syscall/message helper objects from lib/.  There is no full libc.a here —
+# init.c uses raw syscall stubs only, so it stays small enough for a MINIX
+# image builder that works on 16-bit-sized binaries.
+#
+# Targets:
+#   make all      — link tools/init (default)
+#   make lib      — build lib/libinit.a and lib/head_i386.o only
+#   make clean    — remove tools/init and generated objects
+#
+# After building, hand tools/init to your MINIX image builder (tools/build.c)
+# along with the kernel, MM and FS binaries.  Boot the resulting image in
+# QEMU with:
+#   qemu-system-i386 -drive format=raw,file=<image>,if=floppy
+# or attach it as the first hard disk depending on how the image is packed.
 
-CFLAGS = -m32 -march=i386 -std=c11 \
-         -ffreestanding -fno-pie -fno-stack-protector \
-         -fno-builtin -Wall -Wextra \
-         -I../include -I../h
+CC      = gcc
+LD      = ld
+PYTHON  = python3 -I
+SCRIPTS = scripts
+BOOTBIN = bootblok.bin
+DEMO_FS  = demo/demo.fs
+DEMO_IMG = demo/demo.img
+CFLAGS  = -m32 -march=i386 -std=c11 \
+          -ffreestanding -fno-pie -fno-pic \
+          -fno-stack-protector -fno-builtin \
+          -fno-common -Wall -Wextra \
+          -I../include -I../h
+ASFLAGS = -m32 -march=i386 -ffreestanding -fno-pie
+LDFLAGS = -m elf_i386 -nostdlib --entry=_start
 
-LDFLAGS = -m32 -nostdlib -no-pie
+INIT_LIB = ../lib/libinit.a
+HEAD_O   = ../lib/runtime/head_i386.o
 
-TARGET = init
-LIBC = ../lib/libc.a
+.PHONY: all lib clean bootblok demo-fs demo-image demo-fsck
 
-.PHONY: all clean
+all: init
 
-all: $(TARGET)
+bootblok: $(BOOTBIN)
 
-$(TARGET): init.c $(LIBC)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ init.c $(LIBC)
+$(BOOTBIN): $(SCRIPTS)/bootblok.py
+	$(PYTHON) $< $@
+	test "$$(wc -c < $@)" -eq 512
+	test "$$(od -An -tx1 -j510 -N2 $@ | tr -d ' \\n')" = 55aa
 
-$(LIBC):
-	$(MAKE) -C ../lib libc.a
+demo-fs: $(DEMO_FS)
+
+$(DEMO_FS): $(SCRIPTS)/mkfs.py demo/files.json demo/hello.txt init
+	$(PYTHON) $(SCRIPTS)/mkfs.py $@ demo/files.json
+
+demo-image: $(DEMO_IMG)
+
+$(DEMO_IMG): $(BOOTBIN) $(SCRIPTS)/build.py init $(DEMO_FS)
+	$(PYTHON) $(SCRIPTS)/build.py $@ $(BOOTBIN) init init demo.fs $(DEMO_FS)
+
+demo-fsck: $(DEMO_FS) $(SCRIPTS)/fsck.py
+	$(PYTHON) $(SCRIPTS)/fsck.py $(DEMO_FS)
+
+init: init.o $(HEAD_O) $(INIT_LIB)
+	$(LD) $(LDFLAGS) -o $@ $(HEAD_O) init.o $(INIT_LIB)
+	@echo init done.
+
+init.o: init.c
+	$(CC) $(CFLAGS) -c init.c -o $@
+
+$(HEAD_O) $(INIT_LIB):
+	$(MAKE) -C ../lib
+
+lib:
+	$(MAKE) -C ../lib
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f init init.o
 
-
-
-
-
-
-
-
-
-
-
-# l=../liB
+# ---------------------------------------------------------------------------
+# Original MINIX 1 tools makefile, kept for reference.
+# It used the compiler driver to link a full libc.a and relied on the host's
+# own crt0/head.o — that no longer matches a freestanding i386 target, so it
+# is commented out.  Uncomment to compare; do not mix with the rules above.
+#
+# l=../lib
 # CFLAGS = -O -DPCIX
 #
 # all:
@@ -45,103 +92,40 @@ clean:
 #
 # init:	$l/libc.a init.o $l/head.o
 # 	ld -o init  $l/head.o init.o $l/libc.a  $l/end.o
-# 	@echo init done.
+# 	@echo init done.
 #
-# # bootblok.s is the source of the MINIX boot block.  The bootblock is the
-# # first 512 bytes on the image file and on the boot diskette.  When bootblok.s
-# # is assembled, it generates a short binary file (less than 400 bytes) that
-# # must be stripped of its header and copied to the file bootblok.  The dd
-# # command below does this.  If everything has been done right, the bootblok
-# # file should begin with the following 8 words, in hex:
-# # c0b8 8e07 33d8 b8f6 2fe0 c08e ff33 00b9
-# # The exact procedure for going from bootblok.s to the binary file stripped of
-# # its header is somewhat operating system dependent.  Some assemblers make
-# # an object (.o) file; others make an a.out file directly. If your boot 
-# # diskette does not start out by printing 'Booting MINIX 1.0' the problem is
-# # probably that you have not made a good boot block.
-# # bootblok:	bootblok.s
-# # 	as bootblok.s
-# # 	@strip a.out
-# # 	@dd if=a.out of=bootblok bs=16w skip=1 count=16 2>/dev/null
-# # 	@rm a.out
-# # 	@echo bootblok done.
-# # 
-# # build:	build.o
-# # 	cc -o build build.o
-# # 	@echo build done.
-# # 
-# # mkfs:	mkfs.o
-# # 	cc -o mkfs mkfs.o
-# # 	@echo mkfs done.
-# # mkfs.o:	mkfs.c
-# # 	cc -c -O -DUNIX mkfs.c
-# # 
-# # fsck:	fsck.o fsck1.o
-# # 	@ld -o fsck  fsck1.o fsck.o $l/libc.a
-# # 	@echo fsck done.
-# # fsck1.o:	fsck1.s
-# # 	as -o fsck1.o fsck1.s
-# # 
-# # # 'make image'  combines the bootblock, kernel, memory manager, file 
-# # # system, init and fsck into a single file, called image.  Each of these pieces
-# # # appears in the image file just as the original does on the disk, except that
-# # # the header at the front is removed, and each piece is padded out to an
-# # # integral multiple of 16 bytes.  Build also prints a message telling how big
-# # # the various pieces (except fsck) are.
-# # image:	 build bootblok ../kernel/kernel ../mm/mm ../fs/fs init fsck 
-# # 	@build bootblok ../kernel/kernel ../mm/mm ../fs/fs init fsck  image
-# # 	cp image /dev/fd0
-# # 
-# # # 'make usr' builds a file system on a file called 'usr', and then
-# # # copies this file to the diskette (9 sectors per track).  It builds the file
-# # # system using the program mkfs, which is functionally the same as the standard
-# # # UNIX mkfs program, except that sizes (in blocks) for block special files 
-# # # must be provided.
-# # usr:	mkfs proto.usr
-# # 	mkfs -l usr proto.usr >log.usr
-# # 	cp usr /dev/fd0
-# # 
-# # user:	mkfs proto.user
-# # 	mkfs -l user proto.user >log.user
-# # 	cp user /dev/fd0
-# # 
-# # # 'make ram' builds the root file system on a file called 'ram'.  This file
-# # # will be copied to the boot diskette when 'image' is made.  During system boot
-# # # it is copied from 128K on the boot diskette to the RAM disk.
-# # ram:	mkfs proto.ram rc 
-# # 	mkfs -l ram proto.ram >log.ram
-# # 	cp ram /dev/fd0
-# # 
-# # disk5:	mkfs proto.disk5
-# # 	mkfs -l disk5 proto.disk5 >log.disk5
-# # 	cp disk5 /dev/fd0
-# # 
-# # disk6:	mkfs proto.disk6
-# # 	mkfs -l disk6 proto.disk6 >log.disk6
-# # 	cp disk6 /dev/fd0
-# # 
-# # disk7:	mkfs proto.disk7
-# # 	strip ../kernel/kernel ../mm/mm ../fs/fs init fsck
-# # 	mkfs -l disk7 proto.disk7 >log.disk7
-# # 	cp disk7 /dev/fd0
-# # 
-# # disk8:	mkfs proto.disk8
-# # 	mkfs -l disk8 proto.disk8 >log.disk8
-# # 	cp disk8 /dev/fd0
-# # 
-# # 256.ram:	mkfs proto.256.ram rc 
-# # 	mkfs -l 256.ram proto.256.ram >log.256.ram
-# # 	cp 256.ram /dev/fd0
-# # 
-# # 256.usr:	mkfs proto.256.usr
-# # 	mkfs -l 256.usr proto.256.usr >log.256.usr
-# # 	cp 256.usr /dev/fd0
-# # 
-# # at.ram:	mkfs proto.at.ram rc 
-# # 	mkfs -l at.ram proto.at.ram >log.at.ram
-# # 	cp at.ram /dev/fd0
-# # 
-# # at.setup:	mkfs proto.at.setup rc 
-# # 	mkfs -l at.setup proto.at.setup >log.at.setup
-# # 	cp at.setup /dev/fd0
+# bootblok:	bootblok.s
+# 	as bootblok.s
+# 	@strip a.out
+# 	@dd if=a.out of=bootblok bs=16w skip=1 count=16 2>/dev/null
+# 	@rm a.out
+# 	@echo bootblok done.
 #
+# build:	build.o
+# 	cc -o build build.o
+# 	@echo build done.
+#
+# mkfs:	mkfs.o
+# 	cc -o mkfs mkfs.o
+# 	@echo mkfs done.
+# mkfs.o:	mkfs.c
+# 	cc -c -O -DUNIX mkfs.c
+#
+# fsck:	fsck.o fsck1.o
+# 	@ld -o fsck  fsck1.o fsck.o $l/libc.a
+# 	@echo fsck done.
+# fsck1.o:	fsck1.s
+# 	as -o fsck1.o fsck1.s
+#
+# image:	 build bootblok ../kernel/kernel ../mm/mm ../fs/fs init fsck
+# 	@build bootblok ../kernel/kernel ../mm/mm ../fs/fs init fsck  image
+# 	cp image /dev/fd0
+#
+# usr:	mkfs proto.usr
+# 	mkfs -l usr proto.usr >log.usr
+# 	cp usr /dev/fd0
+#
+# ram:	mkfs proto.ram rc
+# 	mkfs -l ram proto.ram >log.ram
+# 	cp ram /dev/fd0
+# ---------------------------------------------------------------------------

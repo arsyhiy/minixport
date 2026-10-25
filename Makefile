@@ -1,240 +1,133 @@
-# # MINIX 1 x86_64 experiment: boot a serial-reporting Multiboot2 stub with GRUB.
-# # This does not yet port the legacy MINIX kernel, MM, FS, or userland.
+# Makefile — MINIX 1 port, M1 milestone image.
 #
-# CC = gcc
-# LD = ld
-# QEMU = qemu-system-x86_64
-# GRUB_MKSTANDALONE = grub-mkstandalone
-# OVMF_CODE = /usr/share/ovmf/OVMF.fd
+# Builds a BIOS-bootable floppy image in the original MINIX module order:
 #
-# BUILD_DIR = build/x86_64
-# KERNEL_ELF = $(BUILD_DIR)/minix.elf
-# FAT_DIR = $(BUILD_DIR)/efi
-# GRUB_EFI = $(FAT_DIR)/EFI/BOOT/BOOTX64.EFI
+#     bootblok | kernel | mm | fs | init | rootfs
 #
-# CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic -fno-stack-protector \
-#          -fno-builtin -O2 -Wall -Wextra
-# LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 -T kernel/x86_64/linker.ld
+# M1 intentionally keeps MM/FS/INIT as tiny position-holder stubs while the
+# real 16-bit sources are being ported.  The image is assembled by
+# tools/scripts/build.py, which also writes a small module table into the
+# last words of the boot sector (like tools/build.c did for a.out binaries).
 #
-# # QEMU_FLAGS = -m 256M -drive file=fat:rw:$(FAT_DIR),format=raw -bios $(OVMF_CODE) -display gtk -no-reboot
-# QEMU_FLAGS = -m 256M \
-#     -drive file=fat:rw:$(FAT_DIR),format=raw \
-#     -bios $(OVMF_CODE) \
-#     -display gtk \
-#     -serial stdio \
-#     -no-reboot
+# Targets:
+#   make all        build build/image/minix.img (default)
+#   make run        boot the image in QEMU (floppy, SDL display)
+#   make run-serial boot with serial console on stdio, no display
+#   make clean      remove build/
 #
-# .PHONY: all clean run debug kernel image help
-#
-# all: image
-#
-# help:
-# 	@echo "MINIX 1 VGA terminal demo (32-bit kernel on x86_64 QEMU)"
-# 	@echo "  all, image  Build UEFI GRUB files for QEMU's FAT drive"
-# 	@echo "  kernel      Build the freestanding kernel ELF"
-# 	@echo "  run         Open the VGA terminal in QEMU"
-# 	@echo "  debug       Boot paused with GDB stub on port 1234"
-# 	@echo "  clean       Remove generated build files"
-# 	@echo "Requires grub-mkstandalone, QEMU FAT drive support and OVMF."
-#
-# # Legacy: kernel: ; $(MAKE) -C kernel
-# # That sub-make builds mpx88.s and the original i8088 kernel, not this ELF.
-# kernel: $(KERNEL_ELF)
-#
-# $(BUILD_DIR):
-# 	mkdir -p $@
-#
-# $(BUILD_DIR)/boot.o: kernel/x86_64/boot.S | $(BUILD_DIR)
-# 	$(CC) -m32 -ffreestanding -fno-pie -c $< -o $@
-#
-# $(BUILD_DIR)/kernel.o: kernel/x86_64/kernel.c | $(BUILD_DIR)
-# 	$(CC) $(CFLAGS) -c $< -o $@
-#
-# $(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o kernel/x86_64/linker.ld
-# 	$(LD) $(LDFLAGS) -o $@ $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o
-#
-# # Legacy: tools/bootblok.s and its boot image are 16-bit BIOS-specific.
-# image: $(GRUB_EFI) $(FAT_DIR)/boot/minix.elf
-#
-# # $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
-# # 	printf '%s\n' 'set timeout=0' 'set default=0' 'insmod all_video' 'insmod gfxterm' 'set gfxmode=auto' 'set gfxpayload=keep' 'terminal_output gfxterm' 'menuentry "MINIX 1 terminal" {' '  multiboot2 /boot/minix.elf' '  boot' '}' > $@
-# $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
-# 	printf '%s\n' \
-# 	    'set timeout=0' \
-# 	    'set default=0' \
-# 	    'insmod all_video' \
-# 	    'insmod multiboot2' \
-# 	    'terminal_output console' \
-# 	    'menuentry "MINIX 1 terminal" {' \
-# 	    '  multiboot2 /boot/minix.elf' \
-# 	    '  boot' \
-# 	    '}' > $@
-#
-# $(GRUB_EFI): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg | $(BUILD_DIR)
-# 	mkdir -p $(FAT_DIR)/EFI/BOOT
-# 	$(GRUB_MKSTANDALONE) -O x86_64-efi -o $@ --modules="part_gpt fat normal multiboot2 search search_fs_file" "boot/grub/grub.cfg=$(BUILD_DIR)/grub.cfg" "boot/minix.elf=$(KERNEL_ELF)"
-#
-# $(FAT_DIR)/boot/minix.elf: $(KERNEL_ELF)
-# 	mkdir -p $(FAT_DIR)/boot
-# 	cp $< $@
-#
-# # QEMU opens a VGA window and boots the standalone GRUB EFI loader.
-# run: image
-# 	$(QEMU) $(QEMU_FLAGS)
-#
-# debug: image
-# 	$(QEMU) $(QEMU_FLAGS) -s -S
-#
-# clean:
-# 	rm -rf build
-#
-# # Legacy targets retained for reference; their original makefiles are 16-bit.
-# # mm: ; $(MAKE) -C mm
-# # fs: ; $(MAKE) -C fs
-# # lib: ; $(MAKE) -C lib
-#
-#
-#
+# Requires: gcc(-m32), binutils, python3, qemu-system-i386.
 
-# CC = gcc
-# LD = ld
-# QEMU = qemu-system-i386
-# GRUB_MKRESCUE = grub-mkrescue
-#
-# BUILD_DIR = build/x86_64
-# KERNEL_ELF = $(BUILD_DIR)/minix.elf
-# ISO_ROOT = $(BUILD_DIR)/iso
-# ISO_FILE = $(BUILD_DIR)/minix.iso
-#
-# CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic \
-#          -fno-stack-protector -fno-builtin \
-#          -O2 -Wall -Wextra
-#
-# LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 \
-#           -T kernel/x86_64/linker.ld
-#
-# QEMU_FLAGS = -m 256M \
-#              -cdrom $(ISO_FILE) \
-#              -boot d \
-#              -display gtk \
-#              -serial stdio \
-#              -no-reboot
-#
-# .PHONY: all clean run debug kernel image
-#
-# all: image
-#
-# kernel: $(KERNEL_ELF)
-#
-# $(BUILD_DIR):
-# 	mkdir -p $@
-#
-# $(BUILD_DIR)/boot.o: kernel/x86_64/boot.S | $(BUILD_DIR)
-# 	$(CC) -m32 -ffreestanding -fno-pie -c $< -o $@
-#
-# $(BUILD_DIR)/kernel.o: kernel/x86_64/kernel.c | $(BUILD_DIR)
-# 	$(CC) $(CFLAGS) -c $< -o $@
-#
-# $(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o \
-#                kernel/x86_64/linker.ld
-# 	$(LD) $(LDFLAGS) -o $@ \
-# 	    $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o
-#
-# $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
-# 	mkdir -p $(BUILD_DIR)
-# 	printf '%s\n' \
-# 	    'set timeout=0' \
-# 	    'set default=0' \
-# 	    'terminal_output console' \
-# 	    'menuentry "MINIX 1 terminal" {' \
-# 	    '    multiboot2 /boot/minix.elf' \
-# 	    '    boot' \
-# 	    '}' > $@
-#
-# image: $(ISO_FILE)
-#
-# $(ISO_FILE): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg
-# 	mkdir -p $(ISO_ROOT)/boot/grub
-# 	cp $(KERNEL_ELF) $(ISO_ROOT)/boot/minix.elf
-# 	cp $(BUILD_DIR)/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
-# 	$(GRUB_MKRESCUE) -o $@ $(ISO_ROOT)
-#
-# run: image
-# 	$(QEMU) $(QEMU_FLAGS)
-#
-# debug: image
-# 	$(QEMU) $(QEMU_FLAGS) -s -S
-#
-# clean:
-# 	rm -rf build
-#
+CC      = gcc
+AS      = as
+LD      = ld
+OBJCOPY = objcopy
+PYTHON  = python3 -I
 
-# CC = gcc
-# LD = ld
-# QEMU = qemu-system-i386
-# GRUB_MKRESCUE = grub-mkrescue
-#
-# BUILD_DIR = build
-# KERNEL_ELF = $(BUILD_DIR)/minix.elf
-# ISO_ROOT = $(BUILD_DIR)/iso
-# ISO_FILE = $(BUILD_DIR)/minix.iso
-#
-# CFLAGS = -m32 -ffreestanding -fno-pie -fno-pic \
-#          -fno-stack-protector -fno-builtin \
-#          -O2 -Wall -Wextra
-#
-# LDFLAGS = -m elf_i386 -nostdlib -z max-page-size=0x1000 \
-#           -T kernel/linker.ld
-#
-# QEMU_FLAGS = -m 256M \
-#              -cdrom $(ISO_FILE) \
-#              -boot d \
-#              -display gtk \
-#              -serial stdio \
-#              -no-reboot
-#
-# .PHONY: all clean run debug kernel image
-#
-# all: image
-#
-# kernel: $(KERNEL_ELF)
-#
-# $(BUILD_DIR):
-# 	mkdir -p $@
-#
-# $(BUILD_DIR)/boot.o: kernel/boot.S | $(BUILD_DIR)
-# 	$(CC) -m32 -ffreestanding -fno-pie -c $< -o $@
-#
-# $(BUILD_DIR)/kernel.o: kernel/kernel.c | $(BUILD_DIR)
-# 	$(CC) $(CFLAGS) -c $< -o $@
-#
-# $(KERNEL_ELF): $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o kernel/linker.ld
-# 	$(LD) $(LDFLAGS) -o $@ \
-# 	    $(BUILD_DIR)/boot.o $(BUILD_DIR)/kernel.o
-#
-# $(BUILD_DIR)/grub.cfg: | $(BUILD_DIR)
-# 	printf '%s\n' \
-# 	    'set timeout=0' \
-# 	    'set default=0' \
-# 	    'terminal_output console' \
-# 	    'menuentry "MINIX 1 terminal" {' \
-# 	    '    multiboot2 /boot/minix.elf' \
-# 	    '    boot' \
-# 	    '}' > $@
-#
-# image: $(ISO_FILE)
-#
-# $(ISO_FILE): $(KERNEL_ELF) $(BUILD_DIR)/grub.cfg
-# 	mkdir -p $(ISO_ROOT)/boot/grub
-# 	cp $(KERNEL_ELF) $(ISO_ROOT)/boot/minix.elf
-# 	cp $(BUILD_DIR)/grub.cfg $(ISO_ROOT)/boot/grub/grub.cfg
-# 	$(GRUB_MKRESCUE) -o $@ $(ISO_ROOT)
-#
-# run: image
-# 	$(QEMU) $(QEMU_FLAGS)
-#
-# debug: image
-# 	$(QEMU) $(QEMU_FLAGS) -s -S
-#
-# clean:
-# 	rm -rf $(BUILD_DIR)
+BUILD   = build/m1
+OBJ     = $(BUILD)/obj
+IMAGE   = $(BUILD)/minix.img
+
+CFLAGS  = -m32 -ffreestanding -fno-pie -fno-pic -fno-stack-protector \
+          -fno-builtin -O2 -Wall -Wextra
+ASFLAGS = --32
+KDIR    = kernel/x86_64
+TOOLS   = tools
+SCRIPTS = $(TOOLS)/scripts
+
+BOOTBLK = $(BUILD)/bootblok.bin
+KERNEL  = $(BUILD)/kernel.bin
+MM      = $(BUILD)/mm.bin
+FS      = $(BUILD)/fs.bin
+INITMOD = $(BUILD)/init.bin
+ROOTFS  = $(BUILD)/rootfs.img
+
+QEMU    = qemu-system-i386
+QFLAGS  = -drive format=raw,file=$(IMAGE),if=floppy \
+          -serial file:$(BUILD)/serial.log -monitor none
+
+.PHONY: all run run-serial clean
+all: $(IMAGE)
+
+# ---- boot sector ------------------------------------------------------------
+
+$(BUILD):
+	mkdir -p $(BUILD) $(OBJ)
+
+$(BUILD)/bootblok.o: $(TOOLS)/bootblok_i386.s | $(BUILD)
+	$(AS) $(ASFLAGS) -o $@ $<
+
+$(BOOTBLK): $(BUILD)/bootblok.o
+	$(LD) -m elf_i386 -Ttext 0x7C00 --oformat binary -o $@ $<
+	@size=$$(wc -c < $@); \
+	if [ $$size -gt 510 ]; then \
+	    echo "bootblok: $$size bytes > 510 — shrink the loader"; exit 1; fi
+	$(PYTHON) -c "import sys; d=open('$@','rb').read(); \
+	    open('$@','wb').write(d + bytes(510-len(d)) + b'\\x55\\xaa')"
+	@echo "bootblok: $$(wc -c < $@) bytes, signature OK"
+
+# ---- flat module binaries ----------------------------------------------------
+# Each module is linked at its fixed physical address and stripped to a flat
+# binary, so byte 0 of the .bin is the module's entry point.
+
+$(OBJ)/kernel_boot.o: $(KDIR)/boot.S | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJ)/kernel.o: $(KDIR)/kernel.c | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(KERNEL): $(OBJ)/kernel_boot.o $(OBJ)/kernel.o $(KDIR)/linker.ld
+	$(LD) -m elf_i386 -nostdlib -T $(KDIR)/linker.ld \
+	      --oformat binary -o $@ $(OBJ)/kernel_boot.o $(OBJ)/kernel.o
+
+$(OBJ)/mm.o: $(KDIR)/mm.S | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(MM): $(OBJ)/mm.o $(KDIR)/linker_mm.ld
+	$(LD) -m elf_i386 -nostdlib -T $(KDIR)/linker_mm.ld \
+	      --oformat binary -o $@ $(OBJ)/mm.o
+
+$(OBJ)/fs.o: $(KDIR)/fs.S | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(FS): $(OBJ)/fs.o $(KDIR)/linker_fs.ld
+	$(LD) -m elf_i386 -nostdlib -T $(KDIR)/linker_fs.ld \
+	      --oformat binary -o $@ $(OBJ)/fs.o
+
+$(OBJ)/init.o: $(KDIR)/init.S | $(BUILD)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(INITMOD): $(OBJ)/init.o $(KDIR)/linker_init.ld
+	$(LD) -m elf_i386 -nostdlib -T $(KDIR)/linker_init.ld \
+	      --oformat binary -o $@ $(OBJ)/init.o
+
+# ---- MINIX v1 root file system ------------------------------------------------
+
+$(ROOTFS): $(SCRIPTS)/mkfs.py $(TOOLS)/proto.m1 | $(BUILD)
+	$(PYTHON) $(SCRIPTS)/mkfs.py $@ $(TOOLS)/proto.m1
+	$(PYTHON) $(SCRIPTS)/fsck.py $@
+
+# ---- image --------------------------------------------------------------------
+
+$(IMAGE): $(BOOTBLK) $(KERNEL) $(MM) $(FS) $(INITMOD) $(ROOTFS) \
+          $(SCRIPTS)/build.py
+	$(PYTHON) $(SCRIPTS)/build.py $@ $(BOOTBLK) $(KERNEL) $(MM) $(FS) \
+	    $(INITMOD) $(ROOTFS)
+
+# ---- run -----------------------------------------------------------------------
+
+run: $(IMAGE)
+	$(QEMU) $(QFLAGS) -display gtk
+
+run-serial: $(IMAGE)
+	$(QEMU) -drive format=raw,file=$(IMAGE),if=floppy \
+	        -serial stdio -display none -monitor none
+
+clean:
+	rm -rf build
+
+# ==============================================================================
+# Everything below is the previous experimental Makefile, kept for reference.
+# It booted the standalone Multiboot2 terminal demo through GRUB/OVMF and is
+# superseded by the BIOS boot-chain targets above.  See git history for the
+# original commented-out text.
+# ==============================================================================

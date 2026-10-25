@@ -1,0 +1,6 @@
+{
+  "files": [
+    {"name": "hello.txt", "file": "demo/hello.txt"},
+    {"name": "init", "file": "init"}
+  ]
+}

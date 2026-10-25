@@ -28,8 +28,8 @@
 
 
 
-#include "../include/lib.h"
-#include "call.h"
+#include "../../include/lib.h"
+#include "../syscall/call.h"
 
 PUBLIC int wait(int *status)
 {
